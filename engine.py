@@ -51,6 +51,17 @@ class Value:
         out._prev = [self, other]
         return out
     
+    def __truediv__(self, other):
+        out = Value(self.data / other.data)
+        
+        def _backward():
+            self.grad += (1 / other.data) * out.grad
+            other.grad -= (self.data / (other.data ** 2)) * out.grad
+        
+        out._backward = _backward
+        out._prev = [self, other]
+        return out
+    
     def relu(self):
         out = Value(0 if self.data <= 0 else self.data)
         
@@ -112,3 +123,19 @@ class Value:
         self.grad = 1
         for v in reversed(topo):
             v._backward()
+
+    def softmax(logits):
+        max_logit = max(logits, key=lambda x: x.data)
+        exp_values = [Value(math.exp((logit - max_logit).data)) for logit in logits]
+        sum_exp = sum(exp_values)
+        softmax_values = [exp_value / sum_exp for exp_value in exp_values]
+    
+        def _backward():
+            for i in range(len(logits)):
+                logits[i].grad += softmax_values[i].data * (1 - softmax_values[i].data) * softmax_values[i].grad
+    
+        for val in softmax_values:
+            val._backward = _backward
+            val._prev = logits
+    
+        return softmax_values
